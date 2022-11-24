@@ -1,9 +1,28 @@
-import { useState, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 
-type State<T> = {
+import type { AxiosError } from 'axios';
+
+export type State<T, E> = {
   status: 'idle' | 'pending' | 'success' | 'error';
   data: T | null;
-  error: string | null;
+  error: { message: string; code?: number; data?: E } | null;
+};
+
+type Request<D, P extends any[]> = (...args: P) => Promise<D>;
+
+const initialState = {
+  status: 'idle',
+  data: null,
+  error: null,
+} as const;
+
+const requestWithID = async <D, P extends any[]>(
+  requestID: number,
+  request: Request<D, P>,
+  ...args: P
+) => {
+  const data = await request(...args);
+  return { requestID, data };
 };
 
 /**
@@ -22,27 +41,49 @@ type State<T> = {
  * хук или обернуть в `useCallback`, для предотвращение срабатываний при указании в качестве зависимостей эффектов.
  * @returns массив, где:
  * - первый элемент - состояние запроса;
- * - второй элемент - функция отложенного вызова.
+ * - второй элемент - функция отложенного вызова;
+ * - третий элемент - функция для сброса состояния.
  */
-export default function useRequest<D, P extends any[]>(
-  request: (...args: P) => Promise<D>
-): [state: State<D>, execute: (...args: P) => Promise<void>] {
-  const [state, setState] = useState<State<D>>({ status: 'idle', data: null, error: null });
+export default function useRequest<D, E = any, P extends any[] = any[]>(
+  request: Request<D, P>
+): [state: State<D, E>, execute: (...args: P) => Promise<void>, clear: () => void] {
+  const [state, setState] = useState<State<D, E>>(initialState);
+
+  const requestID = useRef(0);
+  const cleared = useRef(false);
 
   const execute = useCallback(
     async (...args: P) => {
       try {
+        requestID.current += 1;
+        cleared.current = false;
+
         setState((prev) => ({ ...prev, status: 'pending', error: null }));
 
-        const data = await request(...args);
+        const result = await requestWithID<D, P>(requestID.current, request, ...args);
 
-        setState({ status: 'success', data, error: null });
+        // Прослушиваем только последний запрос
+        if (result.requestID === requestID.current && !cleared.current) {
+          setState({ status: 'success', data: result.data, error: null });
+        }
       } catch (error) {
-        setState((prev) => ({ ...prev, status: 'error', error: (error as Error).message }));
+        const { message, response } = error as AxiosError<E>;
+
+        setState((prev) => ({
+          ...prev,
+          status: 'error',
+          error: { message, code: response?.status, data: response?.data },
+        }));
       }
     },
     [request]
   );
 
-  return [state, execute];
+  const clear = useCallback(() => {
+    cleared.current = true;
+
+    setState((prev) => (prev.status !== 'idle' ? initialState : prev));
+  }, []);
+
+  return [state, execute, clear];
 }

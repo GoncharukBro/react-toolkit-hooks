@@ -5,11 +5,11 @@ import { useState, useEffect } from 'react';
  * @returns числовое значение ширины полосы прокрутки
  */
 export default function useScrollWidth() {
-  const [scrollWidth, setScrollWidth] = useState(0);
+  const [width, setWidth] = useState(0);
 
   useEffect(() => {
-    const resizeObserver = new ResizeObserver((entries) => {
-      setScrollWidth(window.innerWidth - document.documentElement.clientWidth);
+    const resizeObserver = new ResizeObserver(() => {
+      setWidth(document.documentElement.offsetWidth - document.documentElement.clientWidth);
     });
 
     resizeObserver.observe(document.body);
@@ -19,5 +19,5 @@ export default function useScrollWidth() {
     };
   }, []);
 
-  return scrollWidth;
+  return width;
 }

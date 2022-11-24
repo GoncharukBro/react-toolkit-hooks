@@ -27,6 +27,8 @@ function getBreakpointKey<T extends Breakpoints>(
   return breakpoint?.[0];
 }
 
+const defaultBreakpoints = { mobile: 0, tablet: 720, desktop: 1440 };
+
 /**
  * Запускает процесс вычисления текущей контрольной точки по ширине окна браузера.
  * @param breakpoints контрольные точки
@@ -34,19 +36,22 @@ function getBreakpointKey<T extends Breakpoints>(
  * ключ - имя контрольной точки,
  * значение - булево значение, показывающее входит ли контрольная точка в текущую ширину окна браузера
  */
-export default function useBreakpoints<T extends Breakpoints>(breakpoints: T) {
+export default function useBreakpoints<T extends Breakpoints = typeof defaultBreakpoints>(
+  breakpoints?: T
+) {
+  const currentBreakpoints = breakpoints ?? defaultBreakpoints;
   // Кэшируем ткущую контрольную точку для предотвращения лишнего обновления состояния
   const breakpointKey = useRef<keyof T | undefined>(undefined);
 
   const [state, setState] = useState<{ [P in keyof T]: boolean }>(() => {
-    const normalizedBreakpoints = normalizeBreakpoints(breakpoints);
+    const normalizedBreakpoints = normalizeBreakpoints(currentBreakpoints);
     breakpointKey.current = getBreakpointKey(normalizedBreakpoints, global.innerWidth);
     return mapBreakpoints(normalizedBreakpoints, global.innerWidth);
   });
 
   useEffect(() => {
     const handleResize = () => {
-      const normalizedBreakpoints = normalizeBreakpoints(breakpoints);
+      const normalizedBreakpoints = normalizeBreakpoints(currentBreakpoints);
       const currentBreakpointKey = getBreakpointKey(normalizedBreakpoints, window.innerWidth);
 
       if (breakpointKey.current !== currentBreakpointKey) {
@@ -60,7 +65,7 @@ export default function useBreakpoints<T extends Breakpoints>(breakpoints: T) {
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [breakpoints]);
+  }, [currentBreakpoints]);
 
   return state;
 }

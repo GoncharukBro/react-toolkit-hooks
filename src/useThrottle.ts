@@ -8,24 +8,22 @@ import { useCallback, useRef } from 'react';
  * @param delay задержка с которой будет срабатывать пользовательская функция
  * @returns функция вызова с пользовательской логикой
  */
-export default function useThrottle(callback: (...args: any[]) => void, delay?: number) {
-  const isThrottled = useRef(false);
+export default function useThrottle() {
+  const throttle = useRef(false);
 
-  const execute = useCallback(
-    (...args) => {
-      if (isThrottled.current) {
-        return;
-      }
+  const start = useCallback((callback: () => void, delay: number) => {
+    if (throttle.current) {
+      return;
+    }
 
-      callback(...args);
-      isThrottled.current = true;
+    callback();
 
-      setTimeout(() => {
-        isThrottled.current = false;
-      }, delay);
-    },
-    [callback, delay]
-  );
+    throttle.current = true;
 
-  return execute;
+    setTimeout(() => {
+      throttle.current = false;
+    }, delay);
+  }, []);
+
+  return start;
 }

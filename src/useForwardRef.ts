@@ -1,47 +1,27 @@
-import { useLayoutEffect, useRef, useCallback } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 
-type RefSetter<R> = (ref: R | null) => void;
-
-function useForwardRef<R extends F, F = any>(
-  forwardedRef: React.ForwardedRef<F>
-): React.MutableRefObject<R | null>;
-// eslint-disable-next-line no-redeclare
-function useForwardRef<R extends F, F = any>(
-  forwardedRef: React.ForwardedRef<F>,
-  externalRef: React.MutableRefObject<R | null>
-): RefSetter<R>;
-// eslint-disable-next-line no-redeclare
-function useForwardRef<R extends F, F = any>(
-  forwardedRef: React.ForwardedRef<F>,
-  externalRef?: React.MutableRefObject<R | null>
-): React.MutableRefObject<R | null> | RefSetter<R> {
-  const hasExternalRef = externalRef !== undefined;
-
-  const internalRef = useRef<R | null>(null);
-
-  const setRef = useCallback(
-    (currentRef: R | null) => {
-      // eslint-disable-next-line no-param-reassign
-      (externalRef ?? internalRef).current = currentRef;
-
-      // Добавляем ссылку на элемент для родительских компонентов
-      if (typeof forwardedRef === 'function') {
-        forwardedRef(currentRef);
-      } else if (typeof forwardedRef === 'object' && forwardedRef !== null) {
-        // eslint-disable-next-line no-param-reassign
-        forwardedRef.current = currentRef;
-      }
-    },
-    [externalRef, forwardedRef]
-  );
+/**
+ *
+ * @param forwardedRefs
+ * @returns
+ */
+export default function useForwardRef<E extends HTMLElement>(
+  ...forwardedRefs: React.ForwardedRef<E>[]
+) {
+  const ref = useRef<E | null>(null);
 
   useLayoutEffect(() => {
-    if (!hasExternalRef) {
-      setRef(internalRef.current);
+    if (forwardedRefs) {
+      forwardedRefs.forEach((forwardedRef) => {
+        if (typeof forwardedRef === 'function') {
+          forwardedRef(ref.current);
+        } else if (typeof forwardedRef === 'object' && forwardedRef !== null) {
+          // eslint-disable-next-line no-param-reassign
+          forwardedRef.current = ref.current;
+        }
+      });
     }
-  }, [hasExternalRef, setRef]);
+  }, [forwardedRefs]);
 
-  return hasExternalRef ? setRef : internalRef;
+  return ref;
 }
-
-export default useForwardRef;
